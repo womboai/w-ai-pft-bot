@@ -30,6 +30,7 @@ from nodetools.container.service_container import ServiceContainer
 from nodetools.models.memo_processor import generate_custom_id
 
 # tasknode imports
+from tasknode.discord import wallet_seed_manager
 from tasknode.discord.wallet_seed_manager import WalletSeedManager
 from tasknode.task_processing.tasknode_utilities import TaskNodeUtilities
 from tasknode.task_processing.constants import (
@@ -56,6 +57,7 @@ from tasknode.discord.discord_modals import (
     CompletionModal,
     VerificationModal
 )
+from wai.discord.wai_handler import WAIHandler
 
 @dataclass
 class AccountInfo:
@@ -112,6 +114,11 @@ class TaskNodeDiscordBot(discord.Client):
             credential_manager=nodetools.dependencies.credential_manager,
             tx_repo=self.transaction_repository,
             node_config=self.node_config
+        )
+        self.wai_handler = WAIHandler(
+            openrouter=nodetools.dependencies.openrouter, 
+            wallet_seed_manager=self.wallet_seed_manager,
+            generic_pft_utilities=nodetools.dependencies.generic_pft_utilities
         )
 
         # Set network-specific attributes
@@ -265,6 +272,8 @@ class TaskNodeDiscordBot(discord.Client):
         # Prevents duplicate commands but also makes launch slow.
         self.tree.clear_commands(guild=guild)
         await self.tree.sync(guild=guild)
+
+        self.wai_handler.setup(self)
 
         @self.event
         async def on_member_remove(user: discord.User):
@@ -2998,7 +3007,7 @@ def main():
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
         
-        discord_credential_key = "discordbot_testnet_secret" if nodetools.runtime_config.USE_TESTNET else "discordbot_secret"
+        discord_credential_key = "discordbot_testnet_secret" if RuntimeConfig.USE_TESTNET else "discordbot_secret"
         client.run(nodetools.get_credential(discord_credential_key))
 
     except Exception as e:
