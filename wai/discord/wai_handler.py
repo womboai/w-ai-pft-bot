@@ -22,9 +22,9 @@ class WAIHandler:
         self._wallet_seed_manager = wallet_seed_manager
 
     def setup(self, client: "TaskNodeDiscordBot"):
-        self.node_monitor = NodeMonitor(client)
-        logger.debug("Start node monitoring")
-        self.node_monitor.start()
+        # self._node_monitor = NodeMonitor(client)
+        # logger.debug("Start node monitoring")
+        # self._node_monitor.start()
 
         @client.tree.command(name="wai_chat", description="Start a chat to interact with WOMBO nodes")
         async def chat(interaction: Interaction):

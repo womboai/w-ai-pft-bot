@@ -128,5 +128,10 @@ class GenerateImageIntent(IntentHandler):
                     interaction,
                 )
         except Exception as e:
-            logger.error(f"Error occured while handling image generation intent: {e}")
-            await interaction.followup.send("Failed to handle image generation request. Please try again.")
+            logger.error(
+                f"Error occured while handling image generation intent for user {interaction.user.id}: {e}"
+            )
+            await interaction.followup.send(
+                f"Failed to handle image generation request {str(e)}. Please try again.", 
+                ephemeral=True
+            )

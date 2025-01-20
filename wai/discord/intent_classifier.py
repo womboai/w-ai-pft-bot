@@ -12,20 +12,20 @@ from wai.discord.intents.mint_nft import MintNFTIntent
 from wai.discord.intents.unknown import UnknownIntent
 
 
-classification_prompt = """You are an intent classifier. 
+classification_prompt = f"""You are an intent classifier. 
  Classify the user's message into one of these intents: 
- - GENERATE_IMAGE 
- - MINT_NFT 
- - ACCEPT_NFT 
- - UNKNOWN 
+ - {IntentType.GENERATE_IMAGE.name}
+ - {IntentType.MINT_NFT.name}
+ - {IntentType.ACCEPT_NFT.name}
+ - {IntentType.UNKNOWN.name}
 
  Respond with ONLY the intent name, nothing else."""
 
 
 class IntentClassifier:
     def __init__(
-            self, 
-            openrouter: OpenRouterTool, 
+            self,
+            openrouter: OpenRouterTool,
             generic_pft_utilities: GenericPFTUtilities,
             model: str = "anthropic/claude-3.5-sonnet:beta"
     ):

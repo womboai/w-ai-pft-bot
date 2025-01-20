@@ -22,16 +22,18 @@ Important rules:
 - The confirmation must be in response to seeing the {NFT_MINT_COST} PFT cost
 - If a user makes a new request, any previous unconfirmed requests are abandoned
 - If user has given a data URI for the CURRENT request ensure to retain that for the lifetime of that request
+- Accept any data URI meeting the URI spec
 
 For chat logs in the format:
 <user>message</user>
 <bot>message</bot>
 
-Respond in JSON format:
+Respond in JSON format with no additional data:
 {{
     "has_confirmation": boolean,  // true only if user has explicitly confirmed the CURRENT request after seeing the cost
     "has_enough_info": boolean,  // true if a data URI was given for the CURRENT request
     "data_uri": string,      // data URI used for NFT minting for generation
+    "deformed_uri": boolean, // whether the URI is deformed or not matching any URI standard, False if there is no data_uri for the CURRENT request
     "is_new_request": boolean    // true if this appears to be a new NFT mint request rather than a response to a previous one
 }}"""
 
@@ -57,6 +59,14 @@ class MintNFTIntent(IntentHandler):
 
             logger.debug(f"Analysis so far: {analysis}")
 
+            if analysis["deformed_uri"]:
+                await chat.send_followup_message(
+                        "The URI you provided is invalid. Please enter a valid URI.",
+                        interaction,
+                    )
+                return
+
+
             if analysis["has_enough_info"]:
                 if analysis["has_confirmation"]:
                     await chat.send_followup_message(
@@ -78,3 +88,4 @@ class MintNFTIntent(IntentHandler):
                 )
         except Exception as e:
             logger.error(f"Error occured while handling NFT mint intent: {e}")
+            await interaction.followup.send(f"Failed to handle NFT request {str(e)}. Please try again.", ephemeral=True)
