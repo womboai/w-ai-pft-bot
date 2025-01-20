@@ -75,7 +75,7 @@ class WAIHandler:
             except Exception as e:
                 logger.error(f"Error occured during chat: {e}")
                 self._active_chats.pop(interaction.user.id)
-                await interaction.followup.send("Encountered an unknown error please begin a new chat!")
+                await interaction.followup.send(f"Encountered an error {str(e)}. Please begin a new chat!")
 
 
 
