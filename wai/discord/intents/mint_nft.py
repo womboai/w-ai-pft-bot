@@ -1,9 +1,14 @@
+from decimal import Decimal
 import json
+import traceback
 import discord
 from loguru import logger
+from nodetools.models.memo_processor import generate_custom_id
+from nodetools.protocols.generic_pft_utilities import GenericPFTUtilities
 from nodetools.protocols.openrouter import OpenRouterTool
+from xrpl.models import Response
 from xrpl.wallet import Wallet
-from wai.config import NFT_MINT_COST
+from wai.config import NFT_MINT_COST, NFTMintType, get_nft_node_address
 from wai.discord.chat.state import ChatState
 from wai.discord.chat.utils import format_message_history
 from wai.discord.intents import IntentHandler
@@ -39,9 +44,44 @@ Respond in JSON format with no additional data:
 
 
 class MintNFTIntent(IntentHandler):
-    def __init__(self, openrouter: OpenRouterTool):
+    def __init__(self, openrouter: OpenRouterTool, generic_pft_utilities: GenericPFTUtilities):
         self._openrouter = openrouter
+        self._generic_pft_utilities = generic_pft_utilities
         self._model = "anthropic/claude-3.5-sonnet:beta"
+
+
+    async def transact_nft_mint(self, data_uri: str, interaction: discord.Interaction, wallet: Wallet):
+        try:
+            request_id = generate_custom_id()
+            response = await self._generic_pft_utilities.send_memo(
+                wallet_seed_or_wallet=wallet,
+                destination=get_nft_node_address(),
+                memo_data=data_uri,
+                memo_type=request_id + "__" + NFTMintType.NFT_MINT.value,
+                pft_amount=Decimal(NFT_MINT_COST),
+            )
+
+            if not self._generic_pft_utilities.verify_transaction_response(response):
+                if isinstance(response, Response):
+                    raise Exception(
+                        f"Failed to send PFT transaction: {response.result}"
+                    )
+
+                raise Exception(f"Failed to send PFT transaction: {response}")
+
+            # extract response from last memo
+            tx_info = self._generic_pft_utilities.extract_transaction_info(response)[
+                "clean_string"
+            ]
+            await interaction.followup.send(
+                f"Transaction result: {tx_info}", ephemeral=True
+            )
+        except Exception as e:
+            logger.error(f"PFTTransactionModal.on_submit: Error sending memo: {e}")
+            logger.error(traceback.format_exc())
+            await interaction.followup.send(
+                f"An error occurred: {str(e)}", ephemeral=True
+            )
 
     async def handle(self, interaction: discord.Interaction, chat: ChatState, wallet: Wallet) -> None:
         formatted_history = format_message_history(chat.get_message_history())
@@ -73,7 +113,7 @@ class MintNFTIntent(IntentHandler):
                         "I'll mint an NFT using the URI you provided!",
                         interaction,
                     )
-                    # TODO: Here you would call your NFT Minting 
+                    await self.transact_nft_mint(analysis['data_uri'], interaction, wallet)
                 else:
                     await chat.send_followup_message(
                         f"Are you sure that you wish to transact {NFT_MINT_COST} PFT for this NFT? "

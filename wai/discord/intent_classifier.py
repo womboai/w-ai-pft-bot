@@ -31,7 +31,7 @@ class IntentClassifier:
     ):
         self._handlers: Dict[IntentType, IntentHandler] = {
             IntentType.GENERATE_IMAGE: GenerateImageIntent(openrouter, generic_pft_utilities),
-            IntentType.MINT_NFT: MintNFTIntent(openrouter),
+            IntentType.MINT_NFT: MintNFTIntent(openrouter, generic_pft_utilities),
             IntentType.ACCEPT_NFT: AcceptNFTIntent(),
             IntentType.UNKNOWN: UnknownIntent(),
         }
