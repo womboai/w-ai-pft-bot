@@ -12,8 +12,8 @@ from wai.discord.intents.mint_nft import MintNFTIntent
 from wai.discord.intents.unknown import UnknownIntent
 
 
-classification_prompt = f"""You are an intent classifier. 
- Classify the user's message into one of these intents: 
+classification_prompt = f"""You are an intent classifier.
+ Classify the user's message into one of these intents:
  - {IntentType.GENERATE_IMAGE.name}
  - {IntentType.MINT_NFT.name}
  - {IntentType.ACCEPT_NFT.name}
@@ -32,7 +32,7 @@ class IntentClassifier:
         self._handlers: Dict[IntentType, IntentHandler] = {
             IntentType.GENERATE_IMAGE: GenerateImageIntent(openrouter, generic_pft_utilities),
             IntentType.MINT_NFT: MintNFTIntent(openrouter, generic_pft_utilities),
-            IntentType.ACCEPT_NFT: AcceptNFTIntent(),
+            IntentType.ACCEPT_NFT: AcceptNFTIntent(openrouter, generic_pft_utilities),
             IntentType.UNKNOWN: UnknownIntent(),
         }
         self._default_handler = UnknownIntent()
