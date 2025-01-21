@@ -17,17 +17,17 @@ system_prompt = """You are an AI assistant analyzing Discord conversations to de
 Your role is to track the current request and determine if it contains an NFT offer ID.
 
 For each new request, you must:
-1. Check if there's an NFT offer ID
-2. Track if the user has explicitly confirmed they want to proceed once an offer ID has been provided
-3. Only consider the most recent request
+1. Check if there's an NFT offer ID.
+2. Track if the user has explicitly confirmed they want to proceed **in direct response to the bot asking for confirmation** once an offer ID has been provided.
+3. Only consider the most recent request.
 
 Important rules:
-- Each new request requires its own separate confirmation
-- After a request is executed, that context is closed and shouldn't affect future requests
-- Previous confirmations don't carry over to new requests
-- The confirmation must be in response to providing a NFT offer id 
-- If a user makes a new request, any previous unconfirmed requests are abandoned
-- If has_confirmation is True, there must be an offer_id
+- Each new request requires its own separate confirmation.
+- After a request is executed, that context is closed and shouldn't affect future requests.
+- Previous confirmations don't carry over to new requests.
+- The confirmation must explicitly follow the bot asking the user to confirm and must reference the current request.
+- If a user makes a new request, any previous unconfirmed requests are abandoned.
+- If `has_confirmation` is `True`, there must be an `offer_id` provided in the current request.
 
 For chat logs in the format:
 <user>message</user>
@@ -36,9 +36,10 @@ For chat logs in the format:
 Respond in JSON format with no additional data:
 {
    "is_new_request": boolean,   // true if this appears to be a new request rather than a response to a previous one
-   "has_confirmation": boolean, // true only if user has explicitly confirmed the CURRENT request and has given an offer_id for the CURRENT request
+   "has_confirmation": boolean, // true only if the user has explicitly confirmed the CURRENT request in direct response to the bot asking for confirmation, and an offer_id for the CURRENT request is present
    "offer_id": string | null    // NFT offer ID if provided in current request, null otherwise
-}"""
+}
+"""
 
 class AcceptNFTIntent(IntentHandler):
     def __init__(
