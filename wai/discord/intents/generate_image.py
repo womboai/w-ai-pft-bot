@@ -47,8 +47,8 @@ Respond in JSON format with no additional data:
 class GenerateImageIntent(IntentHandler):
     def __init__(self, openrouter: OpenRouterTool, generic_pft_utilities: GenericPFTUtilities):
         self._openrouter = openrouter
-        self._model = "anthropic/claude-3.5-sonnet:beta"
         self._generic_pft_utilities = generic_pft_utilities
+        self._model = "anthropic/claude-3.5-sonnet:beta"
 
     async def transact_image_gen(self, prompt: str, wallet: Wallet, interaction: discord.Interaction):
         try:
@@ -84,7 +84,6 @@ class GenerateImageIntent(IntentHandler):
             await interaction.followup.send(
                 f"An error occurred: {str(e)}", ephemeral=True
             )
-            return
 
     async def handle(self, interaction: discord.Interaction, chat: ChatState, wallet: Wallet) -> None:
         formatted_history = format_message_history(chat.get_message_history())
