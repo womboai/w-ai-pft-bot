@@ -249,18 +249,12 @@ class NodeMonitor:
             image = self.parse_possible_image(memo_type, memo_data)
 
             if image is not None:
-                return (
-                    f"Account: `{tx['Account']}`\n"
-                    f"{image}"
-                )
+                return image
 
             nft_message = self.parse_possible_nft(memo_type, memo_data)
 
             if nft_message is not None:
-                return (
-                    f"Account: `{tx['Account']}`\n"
-                    f"{nft_message}"
-                )
+                return nft_message
 
         return None 
 
