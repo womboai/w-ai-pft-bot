@@ -24,7 +24,7 @@ Important rules:
 - Each new image request requires its own separate confirmation
 - After an image generation is executed, that context is closed and shouldn't affect future requests
 - Previous confirmations don't carry over to new requests
-- The confirmation must be in response to seeing the {IMAGE_GEN_COST} PFT cost
+- The user's confirmation must be in response to seeing the {IMAGE_GEN_COST} PFT cost provided explicitly by the BOT
 - If a user makes a new request, any previous unconfirmed requests are abandoned
 - If user has enough info, image prompt must be filled in
 
@@ -75,7 +75,7 @@ class GenerateImageIntent(IntentHandler):
             ]
 
             await interaction.followup.send(
-                f"Transaction result: {tx_info}", ephemeral=True
+                f"Transaction result: {tx_info}\n**Image response incoming...**", ephemeral=True
             )
 
         except Exception as e:
@@ -105,8 +105,7 @@ class GenerateImageIntent(IntentHandler):
                 if analysis["has_confirmation"]:
                     # We have enough info to generate an image
                     await chat.send_followup_message(
-                        "I'll generate an image based on what you've described!",
-                        interaction,
+                        "I'll generate an image based on what you've described! Please wait a moment...",
                     )
                     await self.transact_image_gen(analysis["image_prompt"], wallet, interaction)
                 else:
@@ -114,7 +113,6 @@ class GenerateImageIntent(IntentHandler):
                         f"Are you sure that you wish to transact {IMAGE_GEN_COST} PFT for this image generation? "
                         "Here's what I understood you want:\n"
                         f"```{analysis['image_prompt']}```",
-                        interaction,
                     )
             else:
                 # We need more information
@@ -124,7 +122,6 @@ class GenerateImageIntent(IntentHandler):
                 await chat.send_followup_message(
                     "I need a bit more information before I can generate your image. "
                     f"Could you please provide these details:\n{missing_details}",
-                    interaction,
                 )
         except Exception as e:
             logger.error(

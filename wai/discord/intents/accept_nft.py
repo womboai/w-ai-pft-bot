@@ -14,11 +14,11 @@ from nodetools.protocols.generic_pft_utilities import GenericPFTUtilities
 
 system_prompt = """You are an AI assistant analyzing Discord conversations to detect NFT offer IDs in user requests.
 
-Your role is to track the current request and determine if it contains an NFT offer ID provided by the user.
+Your role is to track the current request and determine if it contains an NFT offer ID.
 
 For each new request, you must:
-1. Check if there's an NFT offer ID provided by the user
-2. Track if the user has explicitly confirmed they want to proceed after providing the offer ID
+1. Check if there's an NFT offer ID
+2. Track if the user has explicitly confirmed they want to proceed once an offer ID has been provided
 3. Only consider the most recent request
 
 Important rules:
@@ -100,8 +100,7 @@ class AcceptNFTIntent(IntentHandler):
             if analysis["offer_id"] is not None:
                 if analysis["has_confirmation"]:
                     await chat.send_followup_message(
-                        "I'll accept the NFT using the offer ID you provided!",
-                        interaction,
+                        "I'll accept the NFT using the offer ID you provided! Please wait a moment...",
                     )
                     await self.accept_nft_offer(analysis['offer_id'], interaction, wallet)
                 else:
@@ -109,12 +108,10 @@ class AcceptNFTIntent(IntentHandler):
                         f"Are you sure that you wish to accept this NFT? "
                         "Here's the offer ID I will use:\n"
                         f"```{analysis['offer_id']}```",
-                        interaction,
                     )
             else:
                 await chat.send_followup_message(
                     "Could you please provide an offer ID.",
-                    interaction
                 )
         except Exception as e:
             logger.error(f"Error occured while handling NFT acceptance intent: {e}")

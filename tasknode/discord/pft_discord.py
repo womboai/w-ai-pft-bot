@@ -57,7 +57,7 @@ from tasknode.discord.discord_modals import (
     CompletionModal,
     VerificationModal
 )
-from wai.discord.wai_handler import WAIHandler
+from wai.wai_handler import WAIHandler
 
 @dataclass
 class AccountInfo:

@@ -1,36 +1,38 @@
 import asyncio
-import os
 import time
 import random
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 import discord
-from nodetools.configuration.configuration import XRPL_MAINNET, XRPL_TESTNET
+from nodetools.configuration.configuration import get_network_config
 from xrpl.asyncio.clients import AsyncWebsocketClient
 from xrpl.models import StreamParameter
 import xrpl.models.requests
 from loguru import logger
 import traceback
 
+from xrpl.utils import hex_to_str
 
-# TODO: refactor
+from wai.cache import TTLCache
+from wai.config import ImageGenType, get_image_node_address, get_nft_node_address, NFTMintType
+from wai.discord.chat.state import ChatHandler
+
+
 class NodeMonitor:
     """Monitors XRPL websocket for real-time transaction updates"""
-    def __init__(self, bot: discord.Client):
-        ENV = os.getenv("ENV")
-        NODE_ADDRESS = os.getenv("NODE_ADDRESS")
-
-        self.network_config = XRPL_TESTNET if ENV != "production" else XRPL_MAINNET
-        self.node_address = NODE_ADDRESS or ""
-        self.bot = bot
+    def __init__(self, bot: discord.Client, chat_handler: ChatHandler, active_users: TTLCache[int]):
+        self._network_config = get_network_config() 
+        self._bot = bot
+        self._chats = chat_handler
+        self._active_users = active_users
 
         # Websocket configuration
-        self.ws_urls = self.network_config.websockets
-        self.ws_url_index = 0
-        self.url = self.ws_urls[self.ws_url_index]
-        logger.debug(f"Using wss endpoint: {self.url}")
+        self._ws_urls = self._network_config.websockets
+        self._ws_url_index = 0
+        self._url = self._ws_urls[self._ws_url_index]
+        logger.debug(f"Using wss endpoint: {self._url}")
 
         # Client and queue
-        self.client = None
+        self._client = None
         self.monitor_task = None
         self._shutdown = False
 
@@ -41,7 +43,7 @@ class NodeMonitor:
         self.max_reconnect_attempts = 5
 
         # Ledger monitoring
-        self.last_ledger_time = None
+        self._last_ledger_time = None
         self.LEDGER_TIMEOUT = 30  # seconds
         self.CHECK_INTERVAL = 4  # match XRPL block time
         self.PING_INTERVAL = 60  # Send ping every 60 seconds
@@ -69,10 +71,10 @@ class NodeMonitor:
     async def _ping_server(self):
         """Send ping and wait for response"""
         try:
-            if self.client is None:
+            if self._client is None:
                 raise Exception("Client was None when pinging server")
 
-            response = await self.client.request(xrpl.models.requests.ServerInfo())
+            response = await self._client.request(xrpl.models.requests.ServerInfo())
             return response.is_successful()
         except Exception as e:
             logger.error(f"Ping failed: {e}")
@@ -88,8 +90,8 @@ class NodeMonitor:
             current_time = time.time()
 
             # Check ledger updates
-            if self.last_ledger_time is not None:
-                time_since_last_ledger = time.time() - self.last_ledger_time
+            if self._last_ledger_time is not None:
+                time_since_last_ledger = time.time() - self._last_ledger_time
                 if time_since_last_ledger > self.LEDGER_TIMEOUT:
                     logger.warning(
                         f"No ledger updates for {time_since_last_ledger:.1f} seconds"
@@ -136,9 +138,9 @@ class NodeMonitor:
 
     def _switch_node(self):
         """Switch to next available WebSocket endpoint"""
-        self.ws_url_index = (self.ws_url_index + 1) % len(self.ws_urls)
-        self.url = self.ws_urls[self.ws_url_index]
-        logger.info(f"Switching to WebSocket endpoint: {self.url}")
+        self._ws_url_index = (self._ws_url_index + 1) % len(self._ws_urls)
+        self._url = self._ws_urls[self._ws_url_index]
+        logger.info(f"Switching to WebSocket endpoint: {self._url}")
 
     async def monitor(self):
         """Main monitoring loop with error handling"""
@@ -162,17 +164,17 @@ class NodeMonitor:
 
     async def _monitor_xrpl(self):
         """Monitor XRPL for updates"""
-        self.last_ledger_time = time.time()
+        self._last_ledger_time = time.time()
 
-        async with AsyncWebsocketClient(self.url) as self.client:
+        async with AsyncWebsocketClient(self._url) as self._client:
             accounts = [
-                # Primary node address
-                self.node_address,
-                self.network_config.issuer_address,
+                get_image_node_address(),
+                get_nft_node_address(),
+                self._network_config.issuer_address,
             ]
 
             # Subscribe to streams
-            response = await self.client.request(
+            response = await self._client.request(
                 xrpl.models.requests.Subscribe(
                     streams=[StreamParameter.LEDGER],
                     accounts=accounts,
@@ -188,7 +190,7 @@ class NodeMonitor:
             )
 
             try:
-                async for message in self.client:
+                async for message in self._client:
                     if self._shutdown:
                         break
 
@@ -196,7 +198,7 @@ class NodeMonitor:
                         mtype = message.get("type")
 
                         if mtype == "ledgerClosed":
-                            self.last_ledger_time = time.time()
+                            self._last_ledger_time = time.time()
                         elif mtype == "transaction":
                             await self._process_transaction(message)
 
@@ -211,19 +213,100 @@ class NodeMonitor:
                 except asyncio.CancelledError:
                     pass
 
+    def parse_possible_image(self, memo_type: str, memo_data: str) -> Optional[str]:
+        hash: str | None = None
+        # NOTE: this is highly dependent on the IMAGE RESPONSE format
+        if ImageGenType.IMAGE_GEN_RESPONSE.value in memo_type:
+            hash = (
+                memo_data.split("Here is your image's IPFS hash: ")[1].strip("`")
+            )
+
+        image_string = (
+            None if hash is None else (
+                    f"Image: https://gateway.pinata.cloud/ipfs/{hash}\n"
+                    f"NFT mint URI: ipfs://{hash}"
+            )
+        )
+
+        return image_string
+
+    def parse_possible_nft(self, memo_type: str, memo_data: str) -> Optional[str]:
+        hash: str | None = None
+
+        if NFTMintType.NFT_MINT_RESPONSE.value in memo_type:
+            return memo_data 
+
+        return None 
+
+    def format_notification(self, tx: Dict[str, Any], tx_hash: str) -> str | None:
+        """Format the reviewing result for Discord"""
+
+        url = self._network_config.explorer_tx_url_mask.format(hash=tx_hash)
+
+        memos = tx.get("Memos", [])
+
+        if len(memos) > 0:
+            memo = memos[0]
+            memo = memo.get("Memo", {})
+            memo_type = hex_to_str(memo.get("MemoType"))
+            memo_data = hex_to_str(memo.get("MemoData"))
+
+            image = self.parse_possible_image(memo_type, memo_data)
+
+            if image is not None:
+                return (
+                    f"Account: `{tx['Account']}`\n"
+                    f"{image}"
+                )
+
+            nft_message = self.parse_possible_nft(memo_type, memo_data)
+
+            if nft_message is not None:
+                return (
+                    f"Account: `{tx['Account']}`\n"
+                    f"{nft_message}"
+                )
+
+            return (
+                f"Account: `{tx['Account']}`\n"
+                f"Memo Data: `{memo_data}`\n"
+                f"URL: {url}\n"
+            )
+
+        return None 
+
     async def _process_transaction(self, tx_message: Dict[str, Any]):
         """Process transaction updates from websocket"""
         try:
-
             logger.debug(
-                f"XRPLWebSocketMonitor: Received transaction {tx_message['hash']}"
+                f"XRPLWebSocketMonitor: Received transaction {tx_message["hash"]}"
             )
 
-            # user = self.bot.fetch_user("user")
-            # user.send()
-            
+            dest = tx_message["tx_json"].get("Destination")
+            if dest is None:
+                logger.debug("Unable to find destination address. Skipping.")
+                return
 
-            # TODO: implement functionality to send transactions as discord messages to user's that match the destination (and possibly sender) address
+            discord_id = self._active_users.get(dest)
+
+            if discord_id is None:
+                logger.debug(f"Unable to find discord id for address: {dest}. Skipping.")
+                return
+
+            chat = self._chats.get_chat(discord_id)
+            notif = self.format_notification(tx_message["tx_json"], tx_message["hash"])
+
+            if notif is None:
+                logger.debug("Tx was not a memo tx. Skipping.")
+                return
+
+            if chat is None:
+                logger.debug(f"Sending notification DM to {discord_id}")
+                user = await self._bot.fetch_user(discord_id)
+                await user.send(notif)
+            else:
+                logger.debug(f"Sending followup notification to {discord_id}")
+                await chat.send_followup_message(notif)
         except Exception as e:
             logger.error(f"Error processing transaction update: {e}")
             logger.error(traceback.format_exc())
