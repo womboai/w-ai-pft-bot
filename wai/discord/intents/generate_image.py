@@ -117,7 +117,7 @@ class GenerateImageIntent(IntentHandler):
             else:
                 # We need more information
                 missing_details = "\n".join(
-                    f"• {detail}" for detail in analysis["missing_details"]
+                    f"- {detail}" for detail in analysis["missing_details"]
                 )
                 await chat.send_followup_message(
                     "I need a bit more information before I can generate your image. "

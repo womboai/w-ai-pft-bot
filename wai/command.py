@@ -1,4 +1,4 @@
-from discord import Message, Interaction
+from discord import Message, Interaction, Embed, Color
 import asyncio
 from typing import TYPE_CHECKING
 
@@ -7,7 +7,9 @@ from nodetools.protocols.generic_pft_utilities import GenericPFTUtilities
 from nodetools.protocols.openrouter import OpenRouterTool
 from tasknode.discord.wallet_seed_manager import WalletSeedManager
 from wai.cache import TTLCache
+from wai.config import IMAGE_GEN_COST, NFT_MINT_COST
 from wai.discord.chat.state import ChatHandler, ChatState
+from wai.discord.embed import INFO_EMBED_FIELDS
 from wai.discord.intent_classifier import IntentClassifier
 
 if TYPE_CHECKING:
@@ -48,10 +50,13 @@ class WAICommand(ChatHandler):
                 )
                 return
 
-            await interaction.response.send_message(
-                "Hi! What would you like to do? (generate image, mint NFT, or accept NFT)"
-            )
+            embed = Embed(title="A Chat has Begun", description="Start chatting with the bot. You have 3 options", color=Color.green())
 
+            for field in INFO_EMBED_FIELDS:
+                embed.add_field(**field)
+
+            await interaction.response.send_message(embed=embed)
+            
             def check(message: Message) -> bool:
                 return (
                     message.author.id == interaction.user.id
