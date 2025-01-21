@@ -57,7 +57,7 @@ class IntentClassifier:
             )
 
             intent = content.strip().upper()
-            logger.debug(f"Intent generated: {intent}")
+            logger.debug(f"Intent classified: {intent}")
             intent_type: IntentType | None = None
 
             try:
@@ -74,4 +74,4 @@ class IntentClassifier:
 
         except Exception as e:
             print(f"Classification error: {e}")
-            return self._default_handler
+            raise e

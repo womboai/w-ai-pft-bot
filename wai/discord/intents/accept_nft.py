@@ -14,20 +14,20 @@ from nodetools.protocols.generic_pft_utilities import GenericPFTUtilities
 
 system_prompt = """You are an AI assistant analyzing Discord conversations to detect NFT offer IDs in user requests.
 
-Your role is to track the current request and determine if it contains an NFT offer ID provided by the user.
+Your role is to track the current request and determine if it contains an NFT offer ID.
 
 For each new request, you must:
-1. Check if there's an NFT offer ID provided by the user
-2. Track if the user has explicitly confirmed they want to proceed after providing the offer ID
-3. Only consider the most recent request
+1. Check if there's an NFT offer ID.
+2. Track if the user has explicitly confirmed they want to proceed **in direct response to the bot asking for confirmation** once an offer ID has been provided.
+3. Only consider the most recent request.
 
 Important rules:
-- Each new request requires its own separate confirmation
-- After a request is executed, that context is closed and shouldn't affect future requests
-- Previous confirmations don't carry over to new requests
-- The confirmation must be in response to providing a NFT offer id 
-- If a user makes a new request, any previous unconfirmed requests are abandoned
-- If has_confirmation is True, there must be an offer_id
+- Each new request requires its own separate confirmation.
+- After a request is executed, that context is closed and shouldn't affect future requests.
+- Previous confirmations don't carry over to new requests.
+- The confirmation must explicitly follow the bot asking the user to confirm and must reference the current request.
+- If a user makes a new request, any previous unconfirmed requests are abandoned.
+- If `has_confirmation` is `True`, there must be an `offer_id` provided in the current request.
 
 For chat logs in the format:
 <user>message</user>
@@ -36,9 +36,10 @@ For chat logs in the format:
 Respond in JSON format with no additional data:
 {
    "is_new_request": boolean,   // true if this appears to be a new request rather than a response to a previous one
-   "has_confirmation": boolean, // true only if user has explicitly confirmed the CURRENT request and has given an offer_id for the CURRENT request
+   "has_confirmation": boolean, // true only if the user has explicitly confirmed the CURRENT request in direct response to the bot asking for confirmation, and an offer_id for the CURRENT request is present
    "offer_id": string | null    // NFT offer ID if provided in current request, null otherwise
-}"""
+}
+"""
 
 class AcceptNFTIntent(IntentHandler):
     def __init__(
@@ -69,7 +70,6 @@ class AcceptNFTIntent(IntentHandler):
                 ]
                 await interaction.followup.send(
                     f"Offer Acceptance successful, Explorer: {url}", 
-                    ephemeral=True
                 )
             else:
                 logger.error(f"Offer acceptance failed with result: {response.result.get('meta', {}).get('TransactionResult')}")
@@ -100,8 +100,7 @@ class AcceptNFTIntent(IntentHandler):
             if analysis["offer_id"] is not None:
                 if analysis["has_confirmation"]:
                     await chat.send_followup_message(
-                        "I'll accept the NFT using the offer ID you provided!",
-                        interaction,
+                        "I'll accept the NFT using the offer ID you provided! Please wait a moment...",
                     )
                     await self.accept_nft_offer(analysis['offer_id'], interaction, wallet)
                 else:
@@ -109,12 +108,10 @@ class AcceptNFTIntent(IntentHandler):
                         f"Are you sure that you wish to accept this NFT? "
                         "Here's the offer ID I will use:\n"
                         f"```{analysis['offer_id']}```",
-                        interaction,
                     )
             else:
                 await chat.send_followup_message(
                     "Could you please provide an offer ID.",
-                    interaction
                 )
         except Exception as e:
             logger.error(f"Error occured while handling NFT acceptance intent: {e}")

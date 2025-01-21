@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Literal, Sequence
+from typing import Dict, List, Literal, Optional, Sequence
 
 from discord import Client, Interaction
 from nodetools.configuration.configuration import global_constants
@@ -12,20 +12,21 @@ class ChatMessage:
 
 
 class ChatState:
-    def __init__(self):
+    def __init__(self, interaction: Interaction[Client]):
         self._message_history: List[ChatMessage] = []
+        self.interaction = interaction 
 
     async def send_response_message(
-        self, content: str, interaction: Interaction[Client]
+        self, content: str
     ):
-        await interaction.response.send_message(content)
+        await self.interaction.response.send_message(content)
         self._message_history.append(ChatMessage(sender="bot", content=content))
         self.clean_history()
 
     async def send_followup_message(
-        self, content: str, interaction: Interaction[Client]
+        self, content: str
     ):
-        await interaction.followup.send(content)
+        await self.interaction.followup.send(content)
         self._message_history.append(ChatMessage(sender="bot", content=content))
         self.clean_history()
 
@@ -40,3 +41,16 @@ class ChatState:
         if len(self._message_history) > global_constants.MAX_HISTORY:
             del self._message_history[0]
 
+
+class ChatHandler:
+    _active_chats: Dict[int, ChatState] = {}
+
+    def add_chat(self, id: int, chat_state: ChatState):
+        self._active_chats[id] = chat_state
+
+    def delete_chat(self, id: int):
+        self._active_chats.pop(id)
+
+    def get_chat(self, id: int) -> Optional[ChatState]:
+        return self._active_chats.get(id)
+    
