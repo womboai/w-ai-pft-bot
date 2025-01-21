@@ -70,7 +70,6 @@ class AcceptNFTIntent(IntentHandler):
                 ]
                 await interaction.followup.send(
                     f"Offer Acceptance successful, Explorer: {url}", 
-                    ephemeral=True
                 )
             else:
                 logger.error(f"Offer acceptance failed with result: {response.result.get('meta', {}).get('TransactionResult')}")

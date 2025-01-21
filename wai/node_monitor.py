@@ -231,18 +231,13 @@ class NodeMonitor:
         return image_string
 
     def parse_possible_nft(self, memo_type: str, memo_data: str) -> Optional[str]:
-        hash: str | None = None
-
         if NFTMintType.NFT_MINT_RESPONSE.value in memo_type:
             return memo_data 
 
         return None 
 
-    def format_notification(self, tx: Dict[str, Any], tx_hash: str) -> str | None:
+    def format_notification(self, tx: Dict[str, Any]) -> str | None:
         """Format the reviewing result for Discord"""
-
-        url = self._network_config.explorer_tx_url_mask.format(hash=tx_hash)
-
         memos = tx.get("Memos", [])
 
         if len(memos) > 0:
@@ -267,12 +262,6 @@ class NodeMonitor:
                     f"{nft_message}"
                 )
 
-            return (
-                f"Account: `{tx['Account']}`\n"
-                f"Memo Data: `{memo_data}`\n"
-                f"URL: {url}\n"
-            )
-
         return None 
 
     async def _process_transaction(self, tx_message: Dict[str, Any]):
@@ -294,7 +283,7 @@ class NodeMonitor:
                 return
 
             chat = self._chats.get_chat(discord_id)
-            notif = self.format_notification(tx_message["tx_json"], tx_message["hash"])
+            notif = self.format_notification(tx_message["tx_json"])
 
             if notif is None:
                 logger.debug("Tx was not a memo tx. Skipping.")
