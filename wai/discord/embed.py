@@ -13,4 +13,8 @@ INFO_EMBED_FIELDS = [{
         "name": "Accept NFT",
         "value": "Accept an NFT offer using an offer ID",
         "inline": False 
+}, {
+        "name": "Quit Chat",
+        "value": "Respond with 'exit' to leave the chat",
+        "inline": False 
 }]
