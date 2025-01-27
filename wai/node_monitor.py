@@ -116,7 +116,7 @@ class NodeMonitor:
                     logger.warning(f"Connection check failed: {e}")
                     raise Exception("Connection check failed")
 
-    async def handle_connection_error(self, error_msg: str) -> bool:
+    async def handle_connection_error(self, error_msg: str):
         """Handle connection errors with exponential backoff"""
         logger.error(error_msg)
 
@@ -125,7 +125,6 @@ class NodeMonitor:
             self._switch_node()
             self.reconnect_attempts = 0
             self.reconnect_delay = 1
-            return False
 
         delay = min(
             self.reconnect_delay * (1 + random.uniform(0, 0.1)),
@@ -134,7 +133,6 @@ class NodeMonitor:
         logger.info(f"Reconnecting in {delay:.1f} seconds...")
         await asyncio.sleep(delay)
         self.reconnect_delay = min(self.reconnect_delay * 2, self.max_reconnect_delay)
-        return True
 
     def _switch_node(self):
         """Switch to next available WebSocket endpoint"""
@@ -150,17 +148,12 @@ class NodeMonitor:
                 # Reset reconnection parameters on successful connection
                 self.reconnect_delay = 1
                 self.reconnect_attempts = 0
-
-            except asyncio.CancelledError:
-                break
             except Exception as e:
                 if self._shutdown:
                     break
-                should_continue = await self.handle_connection_error(
+                await self.handle_connection_error(
                     f"XRPL monitor error: {e}"
                 )
-                if not should_continue:
-                    break
 
     async def _monitor_xrpl(self):
         """Monitor XRPL for updates"""
